@@ -94,7 +94,7 @@ def download_chapter(image_urls: list, chapter, relative_path: str, data_saver: 
 def retrieve_series(title_id: str, language: str = "en", data_saver: bool = False, specified_volumes: list = []):
     title_info = get_title_info(title_id)
     chapters = retrieve_chapters(title_id, "en", specified_volumes)
-    title_name = title_info["data"]["attributes"]["title"][language]
+    title_name = title_info["data"]["attributes"]["title"]["en"] # Almost all titles only have an "en" variant, and the "altTitles" list is only occasionally available
     for chapter in chapters:
         page_urls = get_chapter_pages(chapter["id"], data_saver)
         download_chapter(page_urls, chapter, "output/{}/".format(title_name), data_saver)
