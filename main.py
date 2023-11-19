@@ -1,4 +1,6 @@
 import os
+import shutil
+import zipfile
 
 import requests
 
@@ -49,8 +51,8 @@ def get_chapter_pages(chapter_id: str, data_saver: bool = False):
     image_urls = []
     url_prefix = ""
     if data_saver:
-        image_urls = response["chapter"]["data_saver"]
-        url_prefix = "data_saver"
+        image_urls = response["chapter"]["dataSaver"]
+        url_prefix = "data-saver"
     else:
         image_urls = response["chapter"]["data"]
         url_prefix = "data"
@@ -59,7 +61,7 @@ def get_chapter_pages(chapter_id: str, data_saver: bool = False):
         image_urls[i] = "{}/{}/{}/{}".format(response["baseUrl"], url_prefix, response["chapter"]["hash"], image)
         i += 1
     return image_urls
-def download_chapter(image_urls: list, chapter, relative_path: str, data_saver: bool = False):
+def download_chapter(image_urls: list, chapter, relative_path: str, data_saver: bool = False, make_cbz: bool = True):
     chapter_name = "{}  {}".format(chapter["attributes"]["chapter"], chapter["attributes"]["title"])
     chapter_name = chapter_name.replace(":", "")
     chapter_name = chapter_name.replace("?", "")
@@ -78,6 +80,13 @@ def download_chapter(image_urls: list, chapter, relative_path: str, data_saver: 
     ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
     ROOT_DIR = ROOT_DIR.replace("\\", "/")
     chapter_dir = "{}/{}{}/{}/".format(ROOT_DIR, relative_path, volume_name, chapter_name)
+    volume_dir = "{}/{}{}/".format(ROOT_DIR, relative_path, volume_name)
+    cbz_path = '{}{}'.format(volume_dir, chapter_name)
+    cbz_file = '{}{}.cbz'.format(volume_dir, chapter_name)
+    if make_cbz:
+        if os.path.isfile(cbz_file):
+            print("CBZ Already exists for {}: {}!".format(volume_name, chapter_name))
+            return
     if not os.path.exists(chapter_dir):
         print("Downloading "  +volume_name +" Chapter " + chapter_name)
         os.makedirs(chapter_dir)
@@ -90,16 +99,33 @@ def download_chapter(image_urls: list, chapter, relative_path: str, data_saver: 
             file.close()
             i += 1
     else:
-        print(chapter_name + " Already downloaded!")
-def retrieve_series(title_id: str, language: str = "en", data_saver: bool = False, specified_volumes: list = []):
+        print(chapter_name + " Already downloaded folder!")
+    if make_cbz:
+
+        print("Making CBZ...")
+        print(chapter_dir)
+        #shutil.make_archive(cbz_path, 'zip', chapter_dir)
+        with zipfile.ZipFile(cbz_file, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as zipf:
+            zipdir(chapter_dir, zipf)
+        #os.rename(cbz_path + ".zip", cbz_path + ".cbz")
+            zipf.close()
+        shutil.rmtree(chapter_dir)
+def retrieve_series(title_id: str, language: str = "en", data_saver: bool = False, specified_volumes: list = [], make_cbz: bool = True):
     title_info = get_title_info(title_id)
     chapters = retrieve_chapters(title_id, "en", specified_volumes)
     title_name = title_info["data"]["attributes"]["title"]["en"] # Almost all titles only have an "en" variant, and the "altTitles" list is only occasionally available
     for chapter in chapters:
         page_urls = get_chapter_pages(chapter["id"], data_saver)
-        download_chapter(page_urls, chapter, "output/{}/".format(title_name), data_saver)
+        download_chapter(page_urls, chapter, "output/{}/".format(title_name), data_saver, make_cbz)
+def zipdir(path, ziph):
+    # ziph is zipfile handle
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            ziph.write(os.path.join(root, file),
+                       os.path.relpath(os.path.join(root, file),
+                                       os.path.join(path, '..')))
 
 
 
-#retrieve_series("ID(example  v  has Jujutsu Kaisen)", "LANG_ID", data_saver, ["Array of volume #s", "MUST BE STRINGS"])
-retrieve_series("c52b2ce3-7f95-469c-96b0-479524fb7a1a", "en", False, ["3"])
+#retrieve_series("ID(example has Link Click)", "LANG_ID", data_saver, ["Array of volume #s", "MUST BE STRINGS", "if empty array, downloads all"], make_cbz)
+retrieve_series("72e51451-4d0c-4a3f-97ff-afb3f819fbfa", "en", False, [], True)
